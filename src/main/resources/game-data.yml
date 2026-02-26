@@ -1,0 +1,6 @@
+roundArmed: false
+roundStarted: false
+currentHolder: '~'
+losers: [] # You can also manually add players ("- <uuid>") here, if they don't want to participate in the game.
+roundStartTime: 0
+holderStartTime: 0

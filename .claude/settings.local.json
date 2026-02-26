@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:jd.papermc.io)",
+      "mcp__ide__getDiagnostics",
+      "Bash(cd:*)",
+      "Bash(git config:*)",
+      "Bash(git:*)"
+    ]
+  }
+}

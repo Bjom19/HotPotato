@@ -1,0 +1,4 @@
+name: HotPotato
+version: '1.0.0'
+main: dk.bjom.hotPotato.HotPotato
+api-version: '1.21.11'

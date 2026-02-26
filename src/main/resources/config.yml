@@ -1,0 +1,11 @@
+# Unix timestamps in milliseconds
+holdLimit: 64800000 # 18h — max time a player can hold the potato before it burns them
+graceTime: 180000 # 3m — cooldown after being tagged; cannot be tagged again during this window
+roundDuration: 86400000 # 24h — maximum game duration before it times out and explodes the potato
+
+# 6000 ms = 6 seconds
+# 64800000 ms = 18 hours
+# 1000 ms = 1 second
+# 180000 ms = 3 minutes
+# 12000 ms = 12 seconds
+# 86400000 ms = 24 hours
