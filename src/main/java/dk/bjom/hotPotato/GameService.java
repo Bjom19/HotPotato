@@ -1,8 +1,8 @@
 package dk.bjom.hotPotato;
 
+import dk.bjom.hotPotato.webhook.WebhookHandler;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -15,11 +15,16 @@ public class GameService {
     private final GameDataTracker tracker = GameDataTracker.getInstance();
     private final HotPotato plugin = HotPotato.getInstance();
 
+    private final WebhookHandler wh;
+
     private long gracePeriodStart = 0;
 
     private final List<BukkitTask> tasks = new ArrayList<>();
 
-    public GameService() {
+    public GameService(
+            final WebhookHandler webhookHandler
+    ) {
+        this.wh = webhookHandler;
     }
 
     // --- State access ---
@@ -47,14 +52,23 @@ public class GameService {
 
     public void endRound() {
         Player holder = tracker.getCurrentHolder();
+        java.util.UUID holderUUID = tracker.getCurrentHolderUUID();
         tracker.setRoundStarted(false);
         tasks.forEach(BukkitTask::cancel);
         tasks.clear();
 
-        if (holder == null) return;
-        tracker.makeLoser(holder);
+        if (holderUUID == null) return;
+        boolean explodeMakesLoser = plugin.getConfig().getBoolean("explodeMakesLoser", true);
+        if (explodeMakesLoser) tracker.makeLoser(holderUUID);
+
         plugin.getServer().broadcast(Component.text("A life was claimed by the inferno of the hot potato...", NamedTextColor.DARK_RED));
-        EffectService.endGame(holder);
+        if (holder != null) {
+            EffectService.endGame(holder);
+        } else {
+            tracker.addPendingEndGame(holderUUID);
+        }
+
+        trySendMessage("Round ended! " + (holder != null ? holder.getName() : "An unknown player") + " was holding the potato.");
 
         tracker.setCurrentHolder(null);
         tracker.setRoundStartTime(0);
@@ -63,8 +77,8 @@ public class GameService {
 
     public boolean withinGracePeriod() {
         long elapsed = System.currentTimeMillis() - gracePeriodStart;
-        long graceDuration = plugin.getConfig().getLong("tagGracePeriod");
-        return elapsed >= graceDuration;
+        long graceDuration = plugin.getConfig().getLong("graceTime");
+        return elapsed < graceDuration;
     }
 
     public void tagPlayer(Player tagger, Player tagged, ItemStack potato) {
@@ -73,6 +87,7 @@ public class GameService {
         tracker.setCurrentHolder(tagged);
         givePotatoToPlayer(tagged, potato);
         resetTimer();
+        trySendMessage(tagger.getName() + " tagged " + tagged.getName() + "!");
         EffectService.tagPlayer(tagger, tagged);
     }
 
@@ -89,6 +104,7 @@ public class GameService {
         tracker.setCurrentHolder(holder);
         resetTimer();
         movePotatoToHotbar(holder);
+        trySendMessage("Game started! " + holder.getName() + " is the first holder of the potato!");
     }
 
     public void resetTimer() {
@@ -108,6 +124,22 @@ public class GameService {
     }
 
     private void handlePotatoTimer() {
+        Player holder = tracker.getCurrentHolder();
+        if (holder == null) return;
+
+        // Safety: if the potato disappeared (e.g. /clear, creative clear button), restore it
+        boolean hasPotato = false;
+        for (ItemStack item : holder.getInventory().getStorageContents()) {
+            if (PotatoItem.isPotato(item)) {
+                hasPotato = true;
+                break;
+            }
+        }
+        if (!hasPotato) {
+            givePotatoToPlayer(holder, PotatoItem.create());
+            holder.sendMessage(Component.text("It finds its way back. You cannot escape it.", NamedTextColor.DARK_RED));
+        }
+
         long elapsed = System.currentTimeMillis() - tracker.getHolderStartTime();
         long timeLimit = plugin.getConfig().getLong("holdLimit");
         if (elapsed >= timeLimit) {
@@ -169,6 +201,15 @@ public class GameService {
                 givePotatoToPlayer(player, potato);
                 return;
             }
+        }
+    }
+
+    // Other stuff
+    private void trySendMessage(String message) {
+        try {
+            wh.SendMessage(message);
+        } catch (Exception e) {
+            plugin.getLogger().severe("Failed to send message to webhook: " + e.getMessage());
         }
     }
 }

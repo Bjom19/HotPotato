@@ -1,10 +1,11 @@
 plugins {
     id 'java'
     id("xyz.jpenilla.run-paper") version "2.3.1"
+    id("com.gradleup.shadow") version "9.0.0-beta12"
 }
 
 group = 'dk.bjom'
-version = '1.0.0'
+version = '1.1.0'
 
 repositories {
     mavenCentral()
@@ -15,6 +16,8 @@ repositories {
 }
 
 dependencies {
+    implementation("org.apache.httpcomponents.client5:httpclient5:5.6")
+    implementation("tools.jackson.core:jackson-databind:3.0.4")
     compileOnly("io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT")
 }
 
@@ -24,6 +27,17 @@ tasks {
         // This is the only required configuration besides applying the plugin.
         // Your plugin's jar (or shadowJar if present) will be used automatically.
         minecraftVersion("1.21.11")
+    }
+    shadowJar {
+        archiveClassifier.set('')
+        relocate 'org.apache.hc', 'dk.bjom.hotpotato.libs.org.apache.hc'
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+    build {
+        dependsOn shadowJar
+    }
+    clean {
+        delete file("run/plugins/${project.name}-${project.version}.jar")
     }
 }
 

@@ -82,6 +82,11 @@ public class PotatoItem {
         Entity executor = ctx.getSource().getExecutor();
         if (!(executor instanceof Player player)) return Command.SINGLE_SUCCESS;
 
+        if (tracker.isRoundStarted() || tracker.isRoundArmed()) {
+            executor.sendActionBar(Component.text("The curse is already alive. It cannot be given again.", NamedTextColor.RED));
+            return Command.SINGLE_SUCCESS;
+        }
+
         ItemStack potato = new ItemStack(Material.BAKED_POTATO);
         setPotatoMeta(potato);
         player.give(potato);
@@ -147,6 +152,12 @@ public class PotatoItem {
         }
 
         return Command.SINGLE_SUCCESS;
+    }
+
+    public static ItemStack create() {
+        ItemStack potato = new ItemStack(Material.BAKED_POTATO);
+        setPotatoMeta(potato);
+        return potato;
     }
 
     private static void setPotatoMeta(ItemStack potato) {

@@ -3,12 +3,15 @@ package dk.bjom.hotPotato.listeners;
 import dk.bjom.hotPotato.GameService;
 import dk.bjom.hotPotato.HotPotato;
 import dk.bjom.hotPotato.PotatoItem;
+import dk.bjom.hotPotato.EffectService;
+import dk.bjom.hotPotato.GameDataTracker;
 import io.papermc.paper.event.player.PrePlayerAttackEntityEvent;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.ItemStack;
 
 public class GameFlowListener implements Listener {
@@ -32,7 +35,12 @@ public class GameFlowListener implements Listener {
         if (!PotatoItem.isPotato(item)) return;
 
         if (gameService.isLoser(attacked)) {
-            event.setCancelled(!gameService.withinGracePeriod());
+            event.setCancelled(true);
+            return;
+        }
+
+        if (gameService.withinGracePeriod()) {
+            event.setCancelled(true);
             return;
         }
 
@@ -53,6 +61,15 @@ public class GameFlowListener implements Listener {
                 }
             }
         });
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        if (!GameDataTracker.getInstance().consumePendingEndGame(player.getUniqueId())) return;
+
+        // Delay one tick so the player is fully spawned before applying effects
+        plugin.getServer().getScheduler().runTask(plugin, () -> EffectService.endGame(player));
     }
 
     @EventHandler

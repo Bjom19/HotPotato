@@ -29,18 +29,30 @@ public class GameDataTracker {
     private final File playerDataFile;
 
     private Player currentHolder;
+    private UUID currentHolderUUID;
     private final Set<UUID> losers = new HashSet<>();
+    private final Set<UUID> pendingEndGame = new HashSet<>();
     private boolean roundArmed = false;
     private boolean roundStarted = false;
     private long roundStartTime = 0L;
     private long holderStartTime = 0L;
 
     public Player getCurrentHolder() {
-        return currentHolder;
+        if (currentHolder != null && currentHolder.isOnline()) return currentHolder;
+        if (currentHolderUUID != null) {
+            currentHolder = Bukkit.getPlayer(currentHolderUUID);
+            return currentHolder;
+        }
+        return null;
+    }
+
+    public UUID getCurrentHolderUUID() {
+        return currentHolderUUID;
     }
 
     public void setCurrentHolder(Player holder) {
         this.currentHolder = holder;
+        this.currentHolderUUID = holder == null ? null : holder.getUniqueId();
         save();
     }
 
@@ -69,7 +81,24 @@ public class GameDataTracker {
     }
 
     public void makeLoser(Player player) {
-        if (losers.add(player.getUniqueId())) save();
+        makeLoser(player.getUniqueId());
+    }
+
+    public void makeLoser(UUID uuid) {
+        if (losers.add(uuid)) save();
+    }
+
+    public void addPendingEndGame(UUID uuid) {
+        if (pendingEndGame.add(uuid)) save();
+    }
+
+    /** Returns true and removes the entry if the player had a pending end-game, false otherwise. */
+    public boolean consumePendingEndGame(UUID uuid) {
+        if (pendingEndGame.remove(uuid)) {
+            save();
+            return true;
+        }
+        return false;
     }
 
     public void removeLoser(Player target) {
@@ -103,13 +132,20 @@ public class GameDataTracker {
         // Potato holder
         String currentHolderIdS = config.getString("currentHolder", null);
         if (currentHolderIdS != null && !currentHolderIdS.equals("~")) {
-            currentHolder = Bukkit.getPlayer(UUID.fromString(currentHolderIdS));
+            currentHolderUUID = UUID.fromString(currentHolderIdS);
+            currentHolder = Bukkit.getPlayer(currentHolderUUID); // null if offline — re-resolved on demand
         }
 
         // Losers
         for (String uuidS : config.getStringList("losers")) {
             if (uuidS.equals("~")) continue;
             losers.add(UUID.fromString(uuidS));
+        }
+
+        // Pending end-game consequences
+        for (String uuidS : config.getStringList("pendingEndGame")) {
+            if (uuidS.equals("~")) continue;
+            pendingEndGame.add(UUID.fromString(uuidS));
         }
 
         roundArmed = config.getBoolean("roundArmed", false);
@@ -126,8 +162,14 @@ public class GameDataTracker {
             loserIds.add(uuid.toString());
         }
 
-        config.set("currentHolder", currentHolder == null ? "~" : currentHolder.getUniqueId().toString());
+        List<String> pendingEndGameIds = new ArrayList<>();
+        for (UUID uuid : pendingEndGame) {
+            pendingEndGameIds.add(uuid.toString());
+        }
+
+        config.set("currentHolder", currentHolderUUID == null ? "~" : currentHolderUUID.toString());
         config.set("losers", loserIds);
+        config.set("pendingEndGame", pendingEndGameIds);
         config.set("roundArmed", roundArmed);
         config.set("roundStarted", roundStarted);
         config.set("roundStartTime", roundStartTime);
@@ -143,6 +185,7 @@ public class GameDataTracker {
 
     public void resetGameData() {
         currentHolder = null;
+        currentHolderUUID = null;
         roundArmed = false;
         roundStarted = false;
         roundStartTime = 0L;

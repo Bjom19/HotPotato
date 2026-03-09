@@ -4,6 +4,8 @@ import dk.bjom.hotPotato.GameService;
 import dk.bjom.hotPotato.HotPotato;
 import dk.bjom.hotPotato.PotatoItem;
 import io.papermc.paper.event.player.PlayerItemFrameChangeEvent;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
@@ -14,6 +16,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryPickupItemEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
@@ -109,5 +112,21 @@ public class PotatoGuardListener implements Listener {
     @EventHandler
     public void onItemInteractEvent(PlayerInteractEvent event) {
         cancelIfPotato(event.getItem(), event);
+    }
+
+    @EventHandler
+    public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
+        if (!gameService.isRoundRunning()) return;
+        String cmd = event.getMessage().toLowerCase().split("\\s")[0];
+        if (!cmd.equals("/clear") && !cmd.equals("/minecraft:clear")) return;
+
+        Player player = event.getPlayer();
+        for (ItemStack item : player.getInventory().getStorageContents()) {
+            if (PotatoItem.isPotato(item)) {
+                event.setCancelled(true);
+                player.sendMessage(Component.text("The curse clings to you. It will not be cast aside.", NamedTextColor.RED));
+                return;
+            }
+        }
     }
 }
